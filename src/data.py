@@ -14,6 +14,18 @@ TAGS_KEY = 'tags'
 PATCH_FILE = 'patch'
 JOBS = min(4, cpu_count())
 
+def sanitize_name(patchname: str) -> str:
+    """Returns a string which is suitable as `Windows` file name."""
+    
+    invalidInFileNames = [ '\\', '/', ':', '*', '?', '"', '<', '>', '|' ]
+    for invalid in invalidInFileNames:
+        if invalid == '?':
+            patchname = patchname.replace(invalid, '¿')
+        else:
+            patchname = patchname.replace(invalid, '_')
+            
+    return patchname
+
 
 def updates(func):
     """Wrapper for functions that require an update of the database."""
@@ -50,10 +62,13 @@ class PatchDatabase:
 
         meta = []
         params = []
+        file_path = []
         for patch in map(self.schema.read_patchfile, files):
             if patch:
                 params.append(patch['params'])
                 del patch['params']
+                file_path.append(patch['path'])
+                del patch['path']
                 meta.append(patch)
 
         init_patch = pd.Series(
@@ -72,6 +87,8 @@ class PatchDatabase:
         self.__df = meta_df.join(param_df)
         self.__tags = pd.DataFrame(index=self.__df.index, dtype='bool')
         self.refresh()
+        for idx in range(len(self.__df)):
+            self.write_patch_as_fxp_chunk(idx, file_path[idx])
 
     # noinspection PyTypeChecker
     def from_disk(self, file):
@@ -270,5 +287,14 @@ class PatchDatabase:
 
             write_fxp(preset, str(path))
 
+    def write_patch_as_fxp_chunk(self, index, ori_path: Path):
+        """Writes the patch at `index` into a file of type `FXP_CHUNK`, `FXP_PARAMS`, or `PATCH_FILE` at `path`."""
+
+        patch = self.__df.iloc[index]
+        kwargs = {'plugin_id': self.schema.vst_id, 'plugin_version': None,
+                  'label': patch['patch_name'], 'num_params': self.schema.num_params}
+        preset = ChunkPreset(chunk=self.schema.make_fxp_chunk(patch), **kwargs)
+        sanitizedPatchName = sanitize_name(patch['patch_name'])
+        write_fxp(preset, str(ori_path.with_name(ori_path.stem + '-' + sanitizedPatchName + '.fxp')))
 
 __all__ = ['PatchDatabase', 'FXP_CHUNK', 'FXP_PARAMS', 'PATCH_FILE']

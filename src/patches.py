@@ -119,6 +119,7 @@ class PatchSchema:
             # need to replace the params string with list of params
             rdict['params'] = params
             rdict['bank'] = path.parent.name
+            rdict['path'] = path
             return rdict
         else:
             return False
