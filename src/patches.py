@@ -119,7 +119,8 @@ class PatchSchema:
             # need to replace the params string with list of params
             rdict['params'] = params
             rdict['bank'] = path.parent.name
-            rdict['path'] = path
+            rdict['path'] = path # new by PEH!
+            rdict['mtime'] = int(path.stat().st_mtime_ns / 1000000000)  # new by PEH! (Modification date as seconds since POSIX epoch - aka 1.1.1970)
             return rdict
         else:
             return False

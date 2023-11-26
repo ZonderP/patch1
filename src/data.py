@@ -1,3 +1,4 @@
+import datetime
 import numpy as np
 import pandas as pd
 import re
@@ -57,18 +58,21 @@ class PatchDatabase:
     def bootstrap(self, root_dir: Path):
         """Creates a new database from the contents of the specified directory and loads the database."""
 
-        re_file = re.compile(self.schema.file_pattern)
+        re_file = re.compile(self.schema.file_pattern, flags=re.IGNORECASE)
         files = filter(lambda f: re_file.match(f.name) is not None, root_dir.glob('**/*'))
 
         meta = []
         params = []
-        file_path = []
+        file_path = []  # New by PEH
+        file_mtime = [] # New by PEH
         for patch in map(self.schema.read_patchfile, files):
             if patch:
                 params.append(patch['params'])
                 del patch['params']
-                file_path.append(patch['path'])
-                del patch['path']
+                file_path.append(patch['path'])     # New by PEH
+                del patch['path']                   # New by PEH
+                file_mtime.append(patch['mtime'])   # New by PEH
+                del patch['mtime']                  # New by PEH
                 meta.append(patch)
 
         init_patch = pd.Series(
@@ -88,7 +92,7 @@ class PatchDatabase:
         self.__tags = pd.DataFrame(index=self.__df.index, dtype='bool')
         self.refresh()
         for idx in range(len(self.__df)):
-            self.write_patch_as_fxp_chunk(idx, file_path[idx])
+            self.write_patch_as_fxp_chunk(idx, file_path[idx], file_mtime[idx])
 
     # noinspection PyTypeChecker
     def from_disk(self, file):
@@ -287,7 +291,7 @@ class PatchDatabase:
 
             write_fxp(preset, str(path))
 
-    def write_patch_as_fxp_chunk(self, index, ori_path: Path):
+    def write_patch_as_fxp_chunk(self, index, ori_path: Path, mtime_as_secs_since_epoch):
         """Writes the patch at `index` into a file of type `FXP_CHUNK`, `FXP_PARAMS`, or `PATCH_FILE` at `path`."""
 
         patch = self.__df.iloc[index]
@@ -295,6 +299,10 @@ class PatchDatabase:
                   'label': patch['patch_name'], 'num_params': self.schema.num_params}
         preset = ChunkPreset(chunk=self.schema.make_fxp_chunk(patch), **kwargs)
         sanitizedPatchName = sanitize_name(patch['patch_name'])
-        write_fxp(preset, str(ori_path.with_name(ori_path.stem + '-' + sanitizedPatchName + '.fxp')))
+        help = datetime.datetime.fromtimestamp(mtime_as_secs_since_epoch)
+        # The next line would also print the modification date of the sy1 file in human readable format:
+        # write_fxp(preset, ori_path.with_name(ori_path.stem + '-' + patch['ver'] + '-' + str(mtime_as_secs_since_epoch) + '-' + help.strftime("%d.%m.%Y %H;%M") + '-' + patch['color'] + '-' + sanitizedPatchName + '.fxp'))
+        write_fxp(preset, ori_path.with_name(ori_path.stem + '-' + patch['ver'] + '-' + str(mtime_as_secs_since_epoch) + '-' + patch['color'] + '-' + sanitizedPatchName + '.fxp'))
+
 
 __all__ = ['PatchDatabase', 'FXP_CHUNK', 'FXP_PARAMS', 'PATCH_FILE']
