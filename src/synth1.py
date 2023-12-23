@@ -54,7 +54,7 @@ class Synth1(PatchSchema):
     # Synth1 parameters as defined in Zoran Nikolic's unofficial manual.
     # https://sound.eti.pg.gda.pl/student/eim/doc/Synth1.pdf
     metas = ['color', 'ver']
-    defaults = ['default', '113']
+    defaults = ['default', '104'] # 100 up to 104 didn't write color or version into the sy1 file -> just let's assume 104 in this case!
     possibilites = {
         'color': ['red', 'blue', 'green', 'yellow', 'magenta', 'cyan', 'default'],
         'ver': list(map(str, range(100, 114)))
